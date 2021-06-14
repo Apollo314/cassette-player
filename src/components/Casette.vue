@@ -50,17 +50,14 @@
         multiple
       />
       <div
+        class="drop-zone"
         @drop.prevent="dropHandler"
-        style="
-          background: #778085;
-          color: #000;
-          margin: 10px;
-          padding: 10px;
-          border-radius: 10px;
-        "
+        @dragenter.prevent
+        @dragover.prevent
         @click="$refs.audioInput.click()"
       >
-        <p>Drag audio files here</p>
+        <p>Drop audio files here or click to add them.</p>
+        <p>They won't be uploaded anywhere.</p>
       </div>
       <div style="padding: 0 10px" v-show="showControls">
         <audio
@@ -80,7 +77,33 @@
     </div>
     <div style="border-radius: 10px; overflow: hidden"></div>
   </div>
-  <div style="position: relative; display: flex; justify-content: center">
+  <div
+    style="position: relative; display: flex; justify-content: center"
+    :style="{ height: `${_cassetteeStyle.scale * 1943}px` }"
+  >
+    <transition name="fade">
+      <div
+        v-if="showPlayButton"
+        style="
+          position: absolute;
+          display: flex;
+          color: #fff;
+          z-index: 999;
+          align-items: center;
+          height: 100%;
+        "
+      >
+        <div
+          class="playButton"
+          @click="
+            handlePlay(0);
+            showPlayButton = false;
+          "
+        >
+          ▶
+        </div>
+      </div>
+    </transition>
     <div id="cassette" style="width: 0; height: 0" :style="cassetteStyle">
       <div id="leftSpoolContainer">
         <div id="leftSpool" :style="leftSpoolStyle">
@@ -106,26 +129,19 @@
 
 <script>
 import { ref, onMounted, computed, reactive, watch } from "vue";
-
 const SPEED = 47.6;
 const RMIN = 10.95; //minimum radius a spool can have
 const TAPE_LENGTH = 128552.95350887459;
 const THICKNESS = 11.2e-3;
 const MAX_ROTATION = 1169;
 const RMAX = RMIN + MAX_ROTATION * THICKNESS;
-
-window.RMAX = RMAX;
-window.RMIN = RMIN;
-
 class Cassette {
   constructor(time) {
     this.time = time;
   }
-
   static root(p) {
     return (-p[1] + Math.sqrt(p[1] ** 2 - 4 * p[0] * p[2])) / 2 / p[0];
   }
-
   get left_spool_radius() {
     return Cassette.root([
       Math.PI,
@@ -133,7 +149,6 @@ class Cassette {
       -Math.PI * RMAX ** 2 + this.time * SPEED * THICKNESS,
     ]);
   }
-
   get right_spool_radius() {
     return Cassette.root([
       Math.PI,
@@ -141,18 +156,13 @@ class Cassette {
       -Math.PI * RMIN ** 2 - this.time * SPEED * THICKNESS,
     ]);
   }
-
   get left_spool_rotation() {
     return (RMAX - this.left_spool_radius) / THICKNESS;
   }
-
   get right_spool_rotation() {
     return (this.right_spool_radius - RMIN) / THICKNESS;
   }
 }
-
-window.Cassette = Cassette;
-
 export default {
   setup(props) {
     const audioInput = ref(null);
@@ -162,7 +172,6 @@ export default {
     const audioPlayer = ref(null);
     const showControls = ref(false);
     const currentTime = ref(0);
-
     const _cassetteeStyle = reactive({
       scale: Math.min(
         Math.min(window.innerHeight, 388) / 1943,
@@ -174,7 +183,6 @@ export default {
         transform: `scale(${_cassetteeStyle.scale}) translateX(-1402px)`,
       };
     });
-
     const _leftSpoolStyle = reactive({ radius: RMAX, rotation: 0 });
     const leftSpoolStyle = computed(() => {
       return {
@@ -183,7 +191,6 @@ export default {
         transform: `rotate(${_leftSpoolStyle.rotation}rad)`,
       };
     });
-
     const _rightSpoolStyle = reactive({ radius: RMIN, rotation: 0 });
     const rightSpoolStyle = computed(() => {
       return {
@@ -192,41 +199,30 @@ export default {
         transform: `rotate(${_rightSpoolStyle.rotation}rad)`,
       };
     });
-
     window.addEventListener("resize", () => {
       _cassetteeStyle.scale = Math.min(
         Math.min(window.innerHeight, 388) / 1943,
         Math.min(window.innerWidth, 560) / 2804
       );
     });
-
-    window._leftSpoolStyle = _leftSpoolStyle;
-    window._rightSpoolStyle = _rightSpoolStyle;
-    window._cassetteeStyle = _cassetteeStyle;
-
     const handlePlay = (index = 0) => {
       selectedIndex.value = index;
       audioPlayer.value.src = audioFiles.value[index].url;
       audioPlayer.value.play();
       showControls.value = true;
     };
-
     const fastForward = async () => {
       for (let i = 0; i < 20; i++) {
         player.value.seekTo(player.value.getCurrentTime() + 10);
         await sleep(16);
       }
     };
-
-    const onFileChange = (event) => {
-      console.log(event);
+    const addFiles = (files) => {
       var currentSongCount = Object.values(audioFiles.value).length;
-      audioInput.value.files.forEach((file, index) => {
+      files.forEach((file, index) => {
         var objectURL = URL.createObjectURL(file);
         var audioInfo = document.createElement("audio");
         audioInfo.src = objectURL;
-        window.audioInfo = audioInfo;
-
         audioInfo.addEventListener("loadedmetadata", (e) => {
           var info = {
             url: objectURL,
@@ -240,23 +236,23 @@ export default {
           audioFiles.value[currentSongCount + index] = info;
         });
       });
-      window.audioFiles = audioFiles;
+      if (currentSongCount == 0) {
+        showPlayButton.value = true;
+      }
     };
-
+    const onFileChange = (event) => {
+      addFiles(audioInput.value.files);
+    };
     function sleep(ms) {
       return new Promise((resolve) => setTimeout(resolve, ms));
     }
-
     var loopStarted = false;
-
     const canPlay = () => {
-      console.log("canPlay");
       if (!loopStarted) {
         simulationLoop();
         loopStarted = true;
       }
     };
-
     async function simulationLoop() {
       while (true) {
         var currentFile = audioFiles.value[selectedIndex.value];
@@ -285,23 +281,20 @@ export default {
         }
       }
     }
-
     const formatTime = (duration) => {
       return new Date(1000 * duration)
         .toISOString()
         .substr(...(duration >= 3600 ? [11, 8] : [14, 5]));
     };
-
     const playNext = () => {
       handlePlay(
         (selectedIndex.value + 1) % Object.values(audioFiles.value).length
       );
     };
-
-    onMounted(() => {
-      console.log("mounted");
-    });
-
+    const dropHandler = (e) => {
+      addFiles(e.dataTransfer.files);
+    };
+    const showPlayButton = ref(false);
     return {
       audioPlayer,
       handlePlay,
@@ -310,6 +303,7 @@ export default {
       audioInput,
       audioFiles,
       fastForward,
+      _cassetteeStyle,
       cassetteStyle,
       leftSpoolStyle,
       rightSpoolStyle,
@@ -318,6 +312,8 @@ export default {
       currentTime,
       canPlay,
       playNext,
+      dropHandler,
+      showPlayButton,
     };
   },
 };
@@ -386,5 +382,36 @@ button + button {
     background: #27272f80;
     color: #fff !important;
   }
+}
+.drop-zone {
+  background: #778085;
+  color: #000;
+  margin: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  &:hover {
+    background: #576065;
+  }
+}
+.playButton {
+  font-size: 150px;
+  text-shadow: 0 0 20px black, 30px 30px 10px #000000b0;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  &:hover {
+    color: #b8a372;
+    font-size: 165px;
+    text-shadow: 0 0 20px black, 40px 40px 14px #000000a0;
+  }
+}
+.fade-enter-active,
+.fade-leave-active {
+  transition: all 0.5s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: scale(2);
 }
 </style>
