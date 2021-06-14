@@ -106,7 +106,6 @@
 
 <script>
 import { ref, onMounted, computed, reactive, watch } from "vue";
-import YouTube from "vue3-youtube";
 
 const SPEED = 47.6;
 const RMIN = 10.95; //minimum radius a spool can have
@@ -155,7 +154,6 @@ class Cassette {
 window.Cassette = Cassette;
 
 export default {
-  components: { YouTube },
   setup(props) {
     const audioInput = ref(null);
     const audioFiles = ref({});
