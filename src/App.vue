@@ -1,8 +1,4 @@
 <template>
-  <div id="nav">
-    <router-link to="/">Home</router-link> |
-    <router-link to="/about">About</router-link>
-  </div>
   <router-view />
 </template>
 
@@ -31,6 +27,6 @@
 html,
 body {
   height: 100%;
-  background-color: #111;
+  background-color: rgb(0, 0, 0);
 }
 </style>

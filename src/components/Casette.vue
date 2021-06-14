@@ -1,16 +1,85 @@
 <template>
   <div style="display: flex; justify-content: center">
-    <div style="border-radius: 10px; overflow: hidden; ">
-      <YouTube
-        @ready="onReady"
-        src="https://www.youtube.com/watch?v=CSSKNCYaQUA"
-        ref="player"
+    <div
+      style="
+        border-radius: 5px;
+        max-width: 500px;
+        width: 100%;
+        min-height: 80px;
+        background: #999;
+        padding: 5px 0px;
+      "
+    >
+      <div
+        v-for="(audioFile, index) in Object.values(audioFiles)"
+        style="color: #000; cursor: pointer; position: relative"
+        class="music-row"
+        @click="handlePlay(index)"
+        :style="
+          index == selectedIndex ? { background: '#27272f', color: '#fff' } : {}
+        "
+      >
+        <div
+          style="position: absolute; height: 100%; background: #0d5240"
+          :style="{
+            width: `${(currentTime / audioFile.duration) * 100}%`,
+          }"
+          v-if="selectedIndex == index"
+        ></div>
+        <div
+          style="padding: 0 10px; display: flex; justify-content: space-between"
+        >
+          <p style="margin: 4px 0; z-index: 99">
+            {{ index + 1 }} - {{ audioFile.name }}
+          </p>
+          <p style="margin: 4px 0; z-index: 99">
+            <span v-if="index == selectedIndex"
+              >{{ formatTime(currentTime) }} / </span
+            >{{ formatTime(audioFile.duration) }}
+          </p>
+        </div>
+      </div>
+
+      <input
+        ref="audioInput"
+        @change="onFileChange"
+        type="file"
+        name="files"
+        style="display: none"
+        accept="audio/*"
+        multiple
       />
+      <div
+        @drop.prevent="dropHandler"
+        style="
+          background: #778085;
+          color: #000;
+          margin: 10px;
+          padding: 10px;
+          border-radius: 10px;
+        "
+        @click="$refs.audioInput.click()"
+      >
+        <p>Drag audio files here</p>
+      </div>
+      <div style="padding: 0 10px" v-show="showControls">
+        <audio
+          @timeupdate="
+            currentTime = Math.min(
+              $event.target.currentTime,
+              audioFiles[selectedIndex].duration
+            )
+          "
+          @ended="playNext"
+          @canplay="canPlay"
+          ref="audioPlayer"
+          controls
+          style="width: 100%"
+        ></audio>
+      </div>
     </div>
+    <div style="border-radius: 10px; overflow: hidden"></div>
   </div>
-  <button @click="player.playVideo()">play</button>
-  <button @click="player.pauseVideo()">pause</button>
-  <button @click="fastForward">fast forward</button>
   <div style="position: relative; display: flex; justify-content: center">
     <div id="cassette" style="width: 0; height: 0" :style="cassetteStyle">
       <div id="leftSpoolContainer">
@@ -36,7 +105,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed, reactive } from "vue";
+import { ref, onMounted, computed, reactive, watch } from "vue";
 import YouTube from "vue3-youtube";
 
 const SPEED = 47.6;
@@ -88,10 +157,20 @@ window.Cassette = Cassette;
 export default {
   components: { YouTube },
   setup(props) {
-    const player = ref(null);
-    window.player = player;
+    const audioInput = ref(null);
+    const audioFiles = ref({});
+    const audioInfo = ref();
+    const selectedIndex = ref(null);
+    const audioPlayer = ref(null);
+    const showControls = ref(false);
+    const currentTime = ref(0);
 
-    const _cassetteeStyle = reactive({ scale: 0.2 });
+    const _cassetteeStyle = reactive({
+      scale: Math.min(
+        Math.min(window.innerHeight, 388) / 1943,
+        Math.min(window.innerWidth, 560) / 2804
+      ),
+    });
     const cassetteStyle = computed(() => {
       return {
         transform: `scale(${_cassetteeStyle.scale}) translateX(-1402px)`,
@@ -127,17 +206,75 @@ export default {
     window._rightSpoolStyle = _rightSpoolStyle;
     window._cassetteeStyle = _cassetteeStyle;
 
+    const handlePlay = (index = 0) => {
+      selectedIndex.value = index;
+      audioPlayer.value.src = audioFiles.value[index].url;
+      audioPlayer.value.play();
+      showControls.value = true;
+    };
+
+    const fastForward = async () => {
+      for (let i = 0; i < 20; i++) {
+        player.value.seekTo(player.value.getCurrentTime() + 10);
+        await sleep(16);
+      }
+    };
+
+    const onFileChange = (event) => {
+      console.log(event);
+      var currentSongCount = Object.values(audioFiles.value).length;
+      audioInput.value.files.forEach((file, index) => {
+        var objectURL = URL.createObjectURL(file);
+        var audioInfo = document.createElement("audio");
+        audioInfo.src = objectURL;
+        window.audioInfo = audioInfo;
+
+        audioInfo.addEventListener("loadedmetadata", (e) => {
+          var info = {
+            url: objectURL,
+            duration: audioInfo.duration,
+            name: file.name,
+            accumulatedDuration: null, // will set the real value after first time accessing it.
+            // have to set it null now because loadedmetadata doesn't add files in order.
+            // audioFiles index 3 might be set before index 0.
+            size: file.size,
+          };
+          audioFiles.value[currentSongCount + index] = info;
+        });
+      });
+      window.audioFiles = audioFiles;
+    };
+
     function sleep(ms) {
       return new Promise((resolve) => setTimeout(resolve, ms));
     }
+
+    var loopStarted = false;
+
+    const canPlay = () => {
+      console.log("canPlay");
+      if (!loopStarted) {
+        simulationLoop();
+        loopStarted = true;
+      }
+    };
+
     async function simulationLoop() {
       while (true) {
-        var t = player.value.getCurrentTime() || 0;
+        var currentFile = audioFiles.value[selectedIndex.value];
+        if (currentFile.accumulatedDuration == null) {
+          currentFile.accumulatedDuration = 0;
+          for (let i = 0; i < selectedIndex.value; i++) {
+            currentFile.accumulatedDuration += audioFiles.value[i].duration;
+          }
+        }
+        var t =
+          currentFile.accumulatedDuration + audioPlayer.value.currentTime || 0;
+        t =
+          (t % (45 * 60)) * (Math.floor(t / 45 / 60) % 2 == 0) +
+          (45 * 60 - (t % (45 * 60))) * !(Math.floor(t / 45 / 60) % 2 == 0);
         try {
           var t = Math.min(t, TAPE_LENGTH / SPEED);
-          if (t > 45 * 60) {
-            player.value.pauseVideo();
-          }
           var c = new Cassette(t);
           _leftSpoolStyle.radius = c.left_spool_radius;
           _leftSpoolStyle.rotation = c.left_spool_rotation * 2 * Math.PI;
@@ -151,16 +288,16 @@ export default {
       }
     }
 
-    const fastForward = async () => {
-      for (let i = 0; i < 20; i++) {
-        player.value.seekTo(player.value.getCurrentTime() + 10);
-        await sleep(16);
-      }
+    const formatTime = (duration) => {
+      return new Date(1000 * duration)
+        .toISOString()
+        .substr(...(duration >= 3600 ? [11, 8] : [14, 5]));
     };
 
-    const onReady = () => {
-      simulationLoop();
-      player.value.playVideo();
+    const playNext = () => {
+      handlePlay(
+        (selectedIndex.value + 1) % Object.values(audioFiles.value).length
+      );
     };
 
     onMounted(() => {
@@ -168,18 +305,28 @@ export default {
     });
 
     return {
+      audioPlayer,
+      handlePlay,
+      selectedIndex,
+      onFileChange,
+      audioInput,
+      audioFiles,
       fastForward,
-      player,
-      onReady,
       cassetteStyle,
       leftSpoolStyle,
       rightSpoolStyle,
+      formatTime,
+      showControls,
+      currentTime,
+      canPlay,
+      playNext,
     };
   },
 };
 </script>
 
-<style>
+  
+<style lang="scss">
 img {
   user-drag: none !important;
   user-select: none !important;
@@ -206,6 +353,7 @@ img {
   display: flex;
   overflow: hidden;
   border-radius: 50%;
+  transition: all 0.3s linear;
 }
 #rightSpoolContainer {
   transform: translate(1322px, 169px);
@@ -224,6 +372,7 @@ img {
   display: flex;
   overflow: hidden;
   border-radius: 50%;
+  transition: all 0.3s linear;
 }
 #cassetteCase {
   position: absolute;
@@ -233,5 +382,11 @@ img {
 }
 button + button {
   margin-left: 2px;
+}
+.music-row {
+  &:hover {
+    background: #27272f80;
+    color: #fff !important;
+  }
 }
 </style>
