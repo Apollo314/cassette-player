@@ -1,4 +1,6 @@
-# casette-player
+# cassette-player
+
+a web based audio player that also has accordingly spinning cassette tape reels.
 
 ## Project setup
 ```
