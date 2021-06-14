@@ -1,5 +1,4 @@
 <template>
-<h4>{{selectedIndex}}</h4>
   <div style="display: flex; justify-content: center">
     <div
       style="
