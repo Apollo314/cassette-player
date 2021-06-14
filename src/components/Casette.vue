@@ -212,7 +212,7 @@ export default {
       };
     });
     window.addEventListener("resize", () => {
-      Math.min(window.innerWidth, 560) / cassetteMesurements.casetteWidth;
+      _cassetteeStyle.scale = Math.min(window.innerWidth, 560) / cassetteMesurements.casetteWidth;
     });
     const handlePlay = (index = 0) => {
       selectedIndex.value = index;
