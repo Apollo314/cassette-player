@@ -2,6 +2,8 @@
 
 a web based audio player that also has accordingly spinning cassette tape reels.
 
+demo: https://apollo314.github.io/cassette-player/
+
 ## Project setup
 ```
 npm install
