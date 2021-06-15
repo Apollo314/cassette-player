@@ -178,7 +178,7 @@ export default {
     const currentTime = ref(0);
     const _cassetteeStyle = reactive({
       scale:
-        Math.min(window.innerWidth, 560) / cassetteMesurements.casetteWidth,
+        Math.min(document.documentElement.clientWidth-40, 560) / cassetteMesurements.casetteWidth,
     });
     const cassetteStyle = computed(() => {
       return {
@@ -212,7 +212,7 @@ export default {
       };
     });
     window.addEventListener("resize", () => {
-      _cassetteeStyle.scale = Math.min(window.innerWidth, 560) / cassetteMesurements.casetteWidth;
+      _cassetteeStyle.scale = Math.min(document.documentElement.clientWidth-40, 560) / cassetteMesurements.casetteWidth;
     });
     const handlePlay = (index = 0) => {
       selectedIndex.value = index;
