@@ -160,8 +160,8 @@ class Cassette {
 }
 
 const cassetteMesurements = {
-  casetteWidth: 800,
-  casetteHeight: 508,
+  casetteWidth: 787,
+  casetteHeight: 500,
   leftSpoolPos: [227, 222],
   rightSpoolPos: [555, 222],
   spoolRadius: 366,
